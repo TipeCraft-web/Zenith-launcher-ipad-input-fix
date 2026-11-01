@@ -26,7 +26,7 @@ jobs:
           
           public class ChatFixMod implements ClientModInitializer {
               private static long lastTime = 0;
-              private static int lastKey = -1;
+              private static char lastChar = '\0';
           
               @Override
               public void onInitializeClient() {
@@ -44,32 +44,34 @@ jobs:
                           new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeInit")},
                           (proxy, method, args) -> {
                               if (method.getName().equals("beforeInit")) {
-                                  Object screen = args[1]; // Holt das Screen-Objekt aus den Argumenten
+                                  Object screen = args;
                                   try {
-                                      Method allowKeyPressMethod = screenKeyboardEventsClass.getMethod("allowKeyPress", Class.forName("net.minecraft.class_437"));
-                                      Object allowKeyPressEvent = allowKeyPressMethod.invoke(null, screen);
+                                      // Wir wechseln von allowKeyPress auf allowCharTyped, um das getippte Zeichen direkt abzufangen!
+                                      Method allowCharTypedMethod = screenKeyboardEventsClass.getMethod("allowCharTyped", Class.forName("net.minecraft.class_437"));
+                                      Object allowCharTypedEvent = allowCharTypedMethod.invoke(null, screen);
                                       
-                                      Method registerAllowKey = allowKeyPressEvent.getClass().getMethod("register", Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress"));
+                                      Method registerAllowChar = allowCharTypedEvent.getClass().getMethod("register", Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowCharTyped"));
                                       
-                                      Object allowKeyProxy = java.lang.reflect.Proxy.newProxyInstance(
+                                      Object allowCharProxy = java.lang.reflect.Proxy.newProxyInstance(
                                           ChatFixMod.class.getClassLoader(),
-                                          new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress")},
-                                          (kProxy, kMethod, kArgs) -> {
-                                              if (kMethod.getName().equals("allowKeyPress")) {
-                                                  // KORREKTUR: Greift auf das erste Element des Objekt-Arrays zu
-                                                  int key = (Integer) kArgs[1]; 
+                                          new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowCharTyped")},
+                                          (cProxy, cMethod, cArgs) -> {
+                                              if (cMethod.getName().equals("allowCharTyped")) {
+                                                  char chr = (Character) cArgs;
                                                   long currentTime = System.currentTimeMillis();
-                                                  if (key == lastKey && (currentTime - lastTime) < 45) {
+                                                  
+                                                  // Wenn das exakt gleiche Zeichen extrem schnell hintereinander kommt -> verwerfen!
+                                                  if (chr == lastChar && (currentTime - lastTime) < 45) {
                                                       lastTime = currentTime;
                                                       return false; 
                                                   }
-                                                  lastKey = key;
+                                                  lastChar = chr;
                                                   lastTime = currentTime;
                                               }
                                               return true;
                                           }
                                       );
-                                      registerAllowKey.invoke(allowKeyPressEvent, allowKeyProxy);
+                                      registerAllowChar.invoke(allowCharTypedEvent, allowCharProxy);
                                   } catch (Exception ignored) {}
                               }
                               return null;
