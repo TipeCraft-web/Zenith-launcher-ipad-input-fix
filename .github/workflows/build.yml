@@ -1,5 +1,5 @@
 name: Build Mod
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,17 +9,17 @@ jobs:
       - name: Unzip Template
         run: |
           unzip zenith-launcher-tastatur-fix-template-26.2.zip -d extracted_mod
-          # Verschiebe alle Dateien ins Hauptverzeichnis
           mv extracted_mod/*/* . 2>/dev/null || mv extracted_mod/* .
 
-      - name: Inject Keyboard Fix Code
+      - name: Program Keyboard Fix Code
         run: |
-          # Findet die Haupt-Java-Datei und überschreibt sie mit dem Fix-Code
-          JAVA_FILE=$(find src/main/java -name "*ModInitializer.java" -o -name "*Mod.java" | head -n 1)
-          PACKAGE_LINE=$(grep "package " $JAVA_FILE)
+          # Erstelle alle benötigten Ordnerstrukturen von Grund auf neu
+          mkdir -p src/main/java/com/example/chatfix
+          mkdir -p src/main/resources
           
-          cat << 'EOF' > $JAVA_FILE
-          $PACKAGE_LINE
+          # Schreibe den Java-Code direkt in die neue Datei
+          cat << 'EOF' > src/main/java/com/example/chatfix/ChatFixMod.java
+          package com.example.chatfix;
           
           import net.fabricmc.api.ClientModInitializer;
           import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -46,9 +46,27 @@ jobs:
               }
           }
           EOF
-          
-          # Fix für Paketnamen in der Datei
-          sed -i "s/\$PACKAGE_LINE/$PACKAGE_LINE/g" $JAVA_FILE
+
+          # Erstelle die fabric.mod.json Konfiguration neu
+          cat << 'EOF' > src/main/resources/fabric.mod.json
+          {
+            "schemaVersion": 1,
+            "id": "zenith_keyboard_fix",
+            "name": "Zenith Keyboard Fix",
+            "version": "${version}",
+            "environment": "client",
+            "entrypoints": {
+              "client": [
+                "com.example.chatfix.ChatFixMod"
+              ]
+            },
+            "depends": {
+              "fabricloader": ">=0.16.0",
+              "minecraft": "~1.26.2",
+              "fabric-api": "*"
+            }
+          }
+          EOF
 
       - name: Set up JDK
         uses: actions/setup-java@v4
