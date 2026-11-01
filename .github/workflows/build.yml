@@ -44,9 +44,8 @@ jobs:
                           new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeInit")},
                           (proxy, method, args) -> {
                               if (method.getName().equals("beforeInit")) {
-                                  Object screen = args;
+                                  Object screen = args[0];
                                   try {
-                                      // Wir wechseln von allowKeyPress auf allowCharTyped, um das getippte Zeichen direkt abzufangen!
                                       Method allowCharTypedMethod = screenKeyboardEventsClass.getMethod("allowCharTyped", Class.forName("net.minecraft.class_437"));
                                       Object allowCharTypedEvent = allowCharTypedMethod.invoke(null, screen);
                                       
@@ -55,12 +54,13 @@ jobs:
                                       Object allowCharProxy = java.lang.reflect.Proxy.newProxyInstance(
                                           ChatFixMod.class.getClassLoader(),
                                           new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowCharTyped")},
-                                          (cProxy, cMethod, cArgs) -> {
+                                          (cProxy, cMethod, kArgs) -> {
                                               if (cMethod.getName().equals("allowCharTyped")) {
-                                                  char chr = (Character) cArgs;
+                                                  // KORREKTUR: Greift auf das erste Element des Objekt-Arrays kArgs zu und holt das Zeichen (Index 1 beim Event)
+                                                  // Bei allowCharTyped sind die Argumente: (Screen screen, char chr, int modifiers)
+                                                  char chr = (Character) kArgs[1];
                                                   long currentTime = System.currentTimeMillis();
                                                   
-                                                  // Wenn das exakt gleiche Zeichen extrem schnell hintereinander kommt -> verwerfen!
                                                   if (chr == lastChar && (currentTime - lastTime) < 45) {
                                                       lastTime = currentTime;
                                                       return false; 
