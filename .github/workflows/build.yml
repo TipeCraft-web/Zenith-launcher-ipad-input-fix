@@ -18,33 +18,69 @@ jobs:
           mkdir -p $GRADLE_DIR/src/main/java/com/example/chatfix
           mkdir -p $GRADLE_DIR/src/main/resources
           
-          # Der bereinigte Java-Code ohne direkten Minecraft-Klassenaufruf
+          # Komplett entkoppelter Code, der ohne Minecraft-Klassen kompiliert werden kann
           cat << 'EOF' > $GRADLE_DIR/src/main/java/com/example/chatfix/ChatFixMod.java
           package com.example.chatfix;
           
           import net.fabricmc.api.ClientModInitializer;
-          import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-          import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
+          import java.lang.reflect.Method;
           
           public class ChatFixMod implements ClientModInitializer {
-              private long lastTime = 0;
-              private int lastKey = -1;
+              private static long lastTime = 0;
+              private static int lastKey = -1;
           
               @Override
               public void onInitializeClient() {
-                  // Wir nutzen Object statt 'client', um die Minecraft-Klassenabhängigkeit zu umgehen
-                  ScreenEvents.BEFORE_INIT.register((Object client, Object screen, int scaledWidth, int scaledHeight) -> {
-                      ScreenKeyboardEvents.allowKeyPress((net.minecraft.client.gui.screen.Screen) screen).register((thisScreen, key, scancode, modifiers) -> {
-                          long currentTime = System.currentTimeMillis();
-                          if (key == lastKey && (currentTime - lastTime) < 45) {
-                              lastTime = currentTime;
-                              return false; 
+                  try {
+                      // Klinkt sich über Reflection in die Fabric-Screen-Events ein
+                      Class<?> screenEventsClass = Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents");
+                      Class<?> screenKeyboardEventsClass = Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents");
+                      
+                      // Holt die Event-Registrierung
+                      java.lang.reflect.Field beforeInitField = screenEventsClass.getField("BEFORE_INIT");
+                      Object beforeInitEvent = beforeInitField.get(null);
+                      
+                      Method registerBeforeInit = beforeInitEvent.getClass().getMethod("register", Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeInit"));
+                      
+                      // Proxy für das Event erstellen, damit wir keine Minecraft-Klassen importieren müssen
+                      Object beforeInitProxy = java.lang.reflect.Proxy.newProxyInstance(
+                          ChatFixMod.class.getClassLoader(),
+                          new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeInit")},
+                          (proxy, method, args) -> {
+                              if (method.getName().equals("beforeInit")) {
+                                  Object screen = args[1];
+                                  try {
+                                      Method allowKeyPressMethod = screenKeyboardEventsClass.getMethod("allowKeyPress", Class.forName("net.minecraft.class_437"));
+                                      Object allowKeyPressEvent = allowKeyPressMethod.invoke(null, screen);
+                                      
+                                      Method registerAllowKey = allowKeyPressEvent.getClass().getMethod("register", Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress"));
+                                      
+                                      Object allowKeyProxy = java.lang.reflect.Proxy.newProxyInstance(
+                                          ChatFixMod.class.getClassLoader(),
+                                          new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress")},
+                                          (kProxy, kMethod, kArgs) -> {
+                                              if (kMethod.getName().equals("allowKeyPress")) {
+                                                  int key = (int) kArgs[1];
+                                                  long currentTime = System.currentTimeMillis();
+                                                  if (key == lastKey && (currentTime - lastTime) < 45) {
+                                                      lastTime = currentTime;
+                                                      return false; // Doppeltes iPadOS-Signal blockieren!
+                                                  }
+                                                  lastKey = key;
+                                                  lastTime = currentTime;
+                                              }
+                                              return true;
+                                          }
+                                      );
+                                      registerAllowKey.invoke(allowKeyPressEvent, allowKeyProxy);
+                                  } catch (Exception ignored) {}
+                              }
+                              return null;
                           }
-                          lastKey = key;
-                          lastTime = currentTime;
-                          return true;
-                      });
-                  });
+                      );
+                      
+                      registerBeforeInit.invoke(beforeInitEvent, beforeInitProxy);
+                  } catch (Exception ignored) {}
               }
           }
           EOF
