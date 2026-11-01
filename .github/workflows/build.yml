@@ -44,7 +44,7 @@ jobs:
                           new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeInit")},
                           (proxy, method, args) -> {
                               if (method.getName().equals("beforeInit")) {
-                                  Object screen = args;
+                                  Object screen = args[1]; // Holt das Screen-Objekt aus den Argumenten
                                   try {
                                       Method allowKeyPressMethod = screenKeyboardEventsClass.getMethod("allowKeyPress", Class.forName("net.minecraft.class_437"));
                                       Object allowKeyPressEvent = allowKeyPressMethod.invoke(null, screen);
@@ -56,7 +56,8 @@ jobs:
                                           new Class<?>[]{Class.forName("net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress")},
                                           (kProxy, kMethod, kArgs) -> {
                                               if (kMethod.getName().equals("allowKeyPress")) {
-                                                  int key = (int) kArgs;
+                                                  // KORREKTUR: Greift auf das erste Element des Objekt-Arrays zu
+                                                  int key = (Integer) kArgs[1]; 
                                                   long currentTime = System.currentTimeMillis();
                                                   if (key == lastKey && (currentTime - lastTime) < 45) {
                                                       lastTime = currentTime;
@@ -81,7 +82,6 @@ jobs:
           }
           EOF
 
-          # Hier wurde das "minecraft": "~1.26.2" durch "*" ersetzt, damit Fabric nicht mehr meckert
           cat << 'EOF' > $GRADLE_DIR/src/main/resources/fabric.mod.json
           {
             "schemaVersion": 1,
