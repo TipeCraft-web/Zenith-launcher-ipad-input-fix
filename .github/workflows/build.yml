@@ -18,7 +18,7 @@ jobs:
           mkdir -p $GRADLE_DIR/src/main/java/com/example/chatfix
           mkdir -p $GRADLE_DIR/src/main/resources
           
-          # Hier wird die fertige Mod vollautomatisch programmiert
+          # Schreibt den fertigen Java-Code direkt in das Projekt
           cat << 'EOF' > $GRADLE_DIR/src/main/java/com/example/chatfix/ChatFixMod.java
           package com.example.chatfix;
           
@@ -48,7 +48,7 @@ jobs:
           }
           EOF
 
-          # Schreibt die Konfiguration
+          # Schreibt die fabric.mod.json Konfiguration
           cat << 'EOF' > $GRADLE_DIR/src/main/resources/fabric.mod.json
           {
             "schemaVersion": 1,
@@ -75,13 +75,13 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
 
-      # Wir installieren Gradle 9.0, um Java 25 voll zu unterstützen
+      # Installiert die korrekte Version 9.8.2 ohne ungültige Zusatzparameter
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.0'
-          build-root-directory: ${{ env.PROJECT_DIR }}
+          gradle-version: '9.8.2'
 
+      # Wechselt in den Unterordner und baut die programmierte Mod
       - name: Build Mod with Gradle
         run: |
           cd ${{ env.PROJECT_DIR }}
