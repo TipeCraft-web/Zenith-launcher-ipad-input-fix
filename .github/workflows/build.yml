@@ -6,13 +6,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Unzip Template
+        run: |
+          unzip zenith-launcher-tastatur-fix-template-26.2.zip -d extracted_mod
+
       - name: Program Keyboard Fix Code
         run: |
-          mkdir -p src/main/java/com/example/chatfix
-          mkdir -p src/main/resources
+          # Findet heraus, wo im entpackten Ordner die build.gradle liegt
+          GRADLE_DIR=$(find extracted_mod -name "build.gradle" -exec dirname {} \;)
+          echo "PROJECT_DIR=$GRADLE_DIR" >> $GITHUB_ENV
           
-          # Schreibe den Java-Code
-          cat << 'EOF' > src/main/java/com/example/chatfix/ChatFixMod.java
+          # Erstelle die Ordnerstruktur direkt im richtigen Projektverzeichnis
+          mkdir -p $GRADLE_DIR/src/main/java/com/example/chatfix
+          mkdir -p $GRADLE_DIR/src/main/resources
+          
+          # Schreibe den Java-Code an die richtige Stelle
+          cat << 'EOF' > $GRADLE_DIR/src/main/java/com/example/chatfix/ChatFixMod.java
           package com.example.chatfix;
           
           import net.fabricmc.api.ClientModInitializer;
@@ -41,8 +50,8 @@ jobs:
           }
           EOF
 
-          # Schreibe die fabric.mod.json
-          cat << 'EOF' > src/main/resources/fabric.mod.json
+          # Schreibe die fabric.mod.json Konfiguration an die richtige Stelle
+          cat << 'EOF' > $GRADLE_DIR/src/main/resources/fabric.mod.json
           {
             "schemaVersion": 1,
             "id": "zenith_keyboard_fix",
@@ -68,15 +77,18 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
 
-      # Schritt 1: Gradle-Umgebung vorbereiten (Aktuelle Version erzwingen)
+      # Bereitet Gradle vor, nutzt aber das richtige Verzeichnis als Root
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11'
+          build-root-directory: ${{ env.PROJECT_DIR }}
 
-      # Schritt 2: Den eigentlichen Bau-Befehl separat ausführen
+      # Wechselt in den Projektordner und startet den Build
       - name: Build Mod with Gradle
-        run: gradle build
+        run: |
+          cd ${{ env.PROJECT_DIR }}
+          gradle build
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
