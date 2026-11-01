@@ -18,7 +18,7 @@ jobs:
           mkdir -p $GRADLE_DIR/src/main/java/com/example/chatfix
           mkdir -p $GRADLE_DIR/src/main/resources
           
-          # Schreibt den fertigen Java-Code direkt in das Projekt
+          # Der bereinigte Java-Code ohne direkten Minecraft-Klassenaufruf
           cat << 'EOF' > $GRADLE_DIR/src/main/java/com/example/chatfix/ChatFixMod.java
           package com.example.chatfix;
           
@@ -32,8 +32,9 @@ jobs:
           
               @Override
               public void onInitializeClient() {
-                  ScreenEvents.BEFORE_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-                      ScreenKeyboardEvents.allowKeyPress(screen).register((thisScreen, key, scancode, modifiers) -> {
+                  // Wir nutzen Object statt 'client', um die Minecraft-Klassenabhängigkeit zu umgehen
+                  ScreenEvents.BEFORE_INIT.register((Object client, Object screen, int scaledWidth, int scaledHeight) -> {
+                      ScreenKeyboardEvents.allowKeyPress((net.minecraft.client.gui.screen.Screen) screen).register((thisScreen, key, scancode, modifiers) -> {
                           long currentTime = System.currentTimeMillis();
                           if (key == lastKey && (currentTime - lastTime) < 45) {
                               lastTime = currentTime;
@@ -75,13 +76,11 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
 
-      # Installiert die korrekte Version 9.8.2 ohne ungültige Zusatzparameter
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.8.2'
 
-      # Wechselt in den Unterordner und baut die programmierte Mod
       - name: Build Mod with Gradle
         run: |
           cd ${{ env.PROJECT_DIR }}
