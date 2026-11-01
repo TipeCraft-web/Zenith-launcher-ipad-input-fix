@@ -12,15 +12,13 @@ jobs:
 
       - name: Program Keyboard Fix Code
         run: |
-          # Findet heraus, wo im entpackten Ordner die build.gradle liegt
           GRADLE_DIR=$(find extracted_mod -name "build.gradle" -exec dirname {} \;)
           echo "PROJECT_DIR=$GRADLE_DIR" >> $GITHUB_ENV
           
-          # Erstelle die Ordnerstruktur direkt im richtigen Projektverzeichnis
           mkdir -p $GRADLE_DIR/src/main/java/com/example/chatfix
           mkdir -p $GRADLE_DIR/src/main/resources
           
-          # Schreibe den Java-Code an die richtige Stelle
+          # Hier wird die fertige Mod vollautomatisch programmiert
           cat << 'EOF' > $GRADLE_DIR/src/main/java/com/example/chatfix/ChatFixMod.java
           package com.example.chatfix;
           
@@ -50,7 +48,7 @@ jobs:
           }
           EOF
 
-          # Schreibe die fabric.mod.json Konfiguration an die richtige Stelle
+          # Schreibt die Konfiguration
           cat << 'EOF' > $GRADLE_DIR/src/main/resources/fabric.mod.json
           {
             "schemaVersion": 1,
@@ -77,14 +75,13 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
 
-      # Bereitet Gradle vor, nutzt aber das richtige Verzeichnis als Root
+      # Wir installieren Gradle 9.0, um Java 25 voll zu unterstützen
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11'
+          gradle-version: '9.0'
           build-root-directory: ${{ env.PROJECT_DIR }}
 
-      # Wechselt in den Projektordner und startet den Build
       - name: Build Mod with Gradle
         run: |
           cd ${{ env.PROJECT_DIR }}
